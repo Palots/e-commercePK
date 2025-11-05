@@ -1,8 +1,9 @@
 const express = require("express")
 const { pool } = require("./db")
-const auth = require("./auth")
+const auth = require("./middlewares/auth")
 
 const router = express.Router()
+
 
 // Middleware para verificar token
 const verificarToken = (req, res, next) => {
