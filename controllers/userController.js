@@ -1,67 +1,56 @@
-import { db } from "../config/db.js";
-import {
-  hashPassword,
-  verifyPassword,
-  generateToken,
-  generateSecret,
-  generateQR,
-  verifyTOTP
-} from "../utils/authUtils.js";
+import { User } from '../models/userModel.js'
+import { hashPassword } from '../middlewares/auth.js'
 
-// Registrar usuario
-export const registerUser = async (req, res) => {
-  try {
-    const { username, email, password } = req.body;
-    const hashed = hashPassword(password);
+export const userController = {
+  async getAll(req, res) {
+    try {
+      const users = await User.getAll()
+      res.json(users)
+    } catch (error) {
+      res.status(500).json({ error: error.message })
+    }
+  },
 
-    const [result] = await db.query(
-      "INSERT INTO users (username, email, password, is_verified) VALUES (?, ?, ?, ?)",
-      [username, email, hashed, false]
-    );
+  async getById(req, res) {
+    try {
+      const user = await User.getById(req.params.id)
+      if (!user) {
+        return res.status(404).json({ error: 'Usuario no encontrado' })
+      }
+      res.json(user)
+    } catch (error) {
+      res.status(500).json({ error: error.message })
+    }
+  },
 
-    const secret = generateSecret();
-    const qr = await generateQR(secret);
+  async update(req, res) {
+    try {
+      const { email, password } = req.body
+      const updateData = {}
 
-    res.json({
-      message: "Usuario registrado con éxito",
-      userId: result.insertId,
-      secret: secret.base32,
-      qr
-    });
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: "Error al registrar usuario" });
+      if (email) updateData.email = email
+      if (password) updateData.password = hashPassword(password)
+
+      const updated = await User.update(req.params.id, updateData)
+      if (!updated) {
+        return res.status(404).json({ error: 'Usuario no encontrado' })
+      }
+
+      res.json({ mensaje: 'Usuario actualizado exitosamente' })
+    } catch (error) {
+      res.status(500).json({ error: error.message })
+    }
+  },
+
+  async remove(req, res) {
+    try {
+      const deleted = await User.remove(req.params.id)
+      if (!deleted) {
+        return res.status(404).json({ error: 'Usuario no encontrado' })
+      }
+      res.json({ mensaje: 'Usuario eliminado exitosamente' })
+    } catch (error) {
+      res.status(500).json({ error: error.message })
+    }
   }
-};
-
-// Login
-export const loginUser = async (req, res) => {
-  try {
-    const { email, password } = req.body;
-    const [rows] = await db.query("SELECT * FROM users WHERE email = ?", [email]);
-
-    if (!rows.length) return res.status(404).json({ error: "Usuario no encontrado" });
-
-    const user = rows[0];
-    if (!verifyPassword(password, user.password))
-      return res.status(401).json({ error: "Contraseña incorrecta" });
-
-    const token = generateToken(user.id);
-    res.json({ message: "Login correcto", token });
-  } catch (err) {
-    res.status(500).json({ error: "Error en el login" });
-  }
-};
-
-// Verificar doble factor
-export const verify2FA = async (req, res) => {
-  try {
-    const { secret, code } = req.body;
-    const verified = verifyTOTP(secret, code);
-
-    if (!verified) return res.status(400).json({ error: "Código incorrecto" });
-    res.json({ message: "2FA verificado con éxito" });
-  } catch (err) {
-    res.status(500).json({ error: "Error al verificar 2FA" });
-  }
-};
+}

@@ -1,42 +1,56 @@
-const jwt = require("jsonwebtoken")
-const speakeasy = require("speakeasy")
-const QRCode = require("qrcode")
-const crypto = require("crypto")
+import crypto from "crypto"
+import jwt from "jsonwebtoken"
+import speakeasy from "speakeasy"
+import QRCode from "qrcode"
+import dotenv from "dotenv"
 
-const SECRET_KEY = "tu_clave_secreta_super_segura_2025"
+dotenv.config()
 
-function hashPassword(password) {
+const JWT_SECRET = process.env.JWT_SECRET || "mi-super-secreto-jwt-12345"
+
+// Hash de contraseña (simple con SHA256, considera usar bcrypt en producción)
+export function hashPassword(password) {
   return crypto.createHash("sha256").update(password).digest("hex")
 }
 
-function verifyPassword(password, hash) {
+// Verificar contraseña
+export function verifyPassword(password, hash) {
   return hashPassword(password) === hash
 }
 
-function generateToken(userId) {
-  return jwt.sign({ userId }, SECRET_KEY, { expiresIn: "24h" })
+// Generar token JWT
+export function generateToken(userId) {
+  return jwt.sign({ userId }, JWT_SECRET, { expiresIn: "24h" })
 }
 
-function verifyToken(token) {
+// Verificar token JWT
+export function verifyToken(token) {
   try {
-    return jwt.verify(token, SECRET_KEY)
-  } catch {
+    return jwt.verify(token, JWT_SECRET)
+  } catch (error) {
     return null
   }
 }
 
-function generateSecret() {
-  return speakeasy.generateSecret({
-    name: "E-commerce",
-    issuer: "E-commerce App",
+// Generar secret 2FA
+export function generateSecret() {
+  return speakeasy.generateSecret({ 
+    name: "E-Commerce App",
+    length: 20
   })
 }
 
-async function generateQR(secret) {
-  return await QRCode.toDataURL(secret.otpauth_url)
+// Generar código QR
+export async function generateQR(secret) {
+  try {
+    return await QRCode.toDataURL(secret.otpauth_url)
+  } catch (error) {
+    throw new Error("Error generando código QR: " + error.message)
+  }
 }
 
-function verifyTOTP(secret, token) {
+// Verificar código TOTP
+export function verifyTOTP(secret, token) {
   return speakeasy.totp.verify({
     secret: secret,
     encoding: "base32",
@@ -45,12 +59,20 @@ function verifyTOTP(secret, token) {
   })
 }
 
-module.exports = {
-  hashPassword,
-  verifyPassword,
-  generateToken,
-  verifyToken,
-  generateSecret,
-  generateQR,
-  verifyTOTP,
+// Middleware para verificar token
+export function verificarToken(req, res, next) {
+  const token = req.headers.authorization?.split(" ")[1]
+  
+  if (!token) {
+    return res.status(401).json({ error: "Token requerido" })
+  }
+
+  const decoded = verifyToken(token)
+  
+  if (!decoded) {
+    return res.status(401).json({ error: "Token inválido o expirado" })
+  }
+
+  req.userId = decoded.userId
+  next()
 }

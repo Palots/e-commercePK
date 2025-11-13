@@ -1,76 +1,89 @@
-const { getDB } = require("../db");
+import { Product } from '../models/productModel.js'
 
-// Crear producto
-async function createProduct(req, res) {
-  try {
-    const { name, description, price, stock } = req.body;
-    const db = getDB();
-    const [result] = await db.execute(
-      "INSERT INTO products (name, description, price, stock) VALUES (?, ?, ?, ?)",
-      [name, description, price, stock]
-    );
+export const productController = {
+  async getAll(req, res) {
+    try {
+      const products = await Product.getAll()
+      res.json(products)
+    } catch (error) {
+      res.status(500).json({ error: error.message })
+    }
+  },
 
-    res.status(201).json({ id: result.insertId, name, description, price, stock });
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: "Error al crear producto" });
+  async getAvailable(req, res) {
+    try {
+      const products = await Product.getAvailable()
+      res.json(products)
+    } catch (error) {
+      res.status(500).json({ error: error.message })
+    }
+  },
+
+  async getById(req, res) {
+    try {
+      const product = await Product.getById(req.params.id)
+      if (!product) {
+        return res.status(404).json({ error: 'Producto no encontrado' })
+      }
+      res.json(product)
+    } catch (error) {
+      res.status(500).json({ error: error.message })
+    }
+  },
+
+  async create(req, res) {
+    try {
+      const { nombre, descripcion, precio, stock } = req.body
+
+      if (!nombre || precio === undefined || stock === undefined) {
+        return res.status(400).json({ 
+          error: 'Nombre, precio y stock son requeridos' 
+        })
+      }
+
+      const product = await Product.create({
+        nombre,
+        descripcion: descripcion || '',
+        precio: parseFloat(precio),
+        stock: parseInt(stock)
+      })
+
+      res.status(201).json(product)
+    } catch (error) {
+      res.status(500).json({ error: error.message })
+    }
+  },
+
+  async update(req, res) {
+    try {
+      const { nombre, descripcion, precio, stock } = req.body
+      
+      const updated = await Product.update(req.params.id, {
+        nombre,
+        descripcion,
+        precio: parseFloat(precio),
+        stock: parseInt(stock)
+      })
+
+      if (!updated) {
+        return res.status(404).json({ error: 'Producto no encontrado' })
+      }
+
+      res.json({ mensaje: 'Producto actualizado exitosamente' })
+    } catch (error) {
+      res.status(500).json({ error: error.message })
+    }
+  },
+
+  async remove(req, res) {
+    try {
+      const deleted = await Product.remove(req.params.id)
+      if (!deleted) {
+        return res.status(404).json({ error: 'Producto no encontrado' })
+      }
+      res.json({ mensaje: 'Producto eliminado exitosamente' })
+    } catch (error) {
+      res.status(500).json({ error: error.message })
+    }
   }
 }
-
-// Listar todos los productos
-async function getProducts(req, res) {
-  try {
-    const db = getDB();
-    const [rows] = await db.execute("SELECT * FROM products");
-    res.json(rows);
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: "Error al obtener productos" });
-  }
-}
-
-// Obtener producto por ID
-async function getProductById(req, res) {
-  try {
-    const db = getDB();
-    const [rows] = await db.execute("SELECT * FROM products WHERE id = ?", [req.params.id]);
-    if (rows.length === 0) return res.status(404).json({ error: "Producto no encontrado" });
-    res.json(rows[0]);
-  } catch (err) {
-    res.status(500).json({ error: "Error al obtener el producto" });
-  }
-}
-
-// Actualizar producto
-async function updateProduct(req, res) {
-  try {
-    const { name, description, price, stock } = req.body;
-    const db = getDB();
-    await db.execute(
-      "UPDATE products SET name = ?, description = ?, price = ?, stock = ? WHERE id = ?",
-      [name, description, price, stock, req.params.id]
-    );
-    res.json({ message: "Producto actualizado correctamente" });
-  } catch (err) {
-    res.status(500).json({ error: "Error al actualizar producto" });
-  }
-}
-
-// Eliminar producto
-async function deleteProduct(req, res) {
-  try {
-    const db = getDB();
-    await db.execute("DELETE FROM products WHERE id = ?", [req.params.id]);
-    res.json({ message: "Producto eliminado correctamente" });
-  } catch (err) {
-    res.status(500).json({ error: "Error al eliminar producto" });
-  }
-}
-
-module.exports = {
-  createProduct,
-  getProducts,
-  getProductById,
-  updateProduct,
-  deleteProduct
-};

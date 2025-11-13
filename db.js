@@ -1,6 +1,9 @@
-const mysql = require("mysql2/promise")
+import mysql from "mysql2/promise"
+import dotenv from "dotenv"
 
-const pool = mysql.createPool({
+dotenv.config()
+
+export const pool = mysql.createPool({
   host: process.env.DB_HOST || "localhost",
   user: process.env.DB_USER || "root",
   password: process.env.DB_PASSWORD || "karentorregob03*",
@@ -11,7 +14,7 @@ const pool = mysql.createPool({
   queueLimit: 0,
 })
 
-async function initDB() {
+export async function initDB() {
   let retries = 5
   while (retries > 0) {
     try {
@@ -48,8 +51,9 @@ async function initDB() {
           usuario_id INT NOT NULL,
           producto_id INT NOT NULL,
           cantidad INT NOT NULL,
-          FOREIGN KEY (usuario_id) REFERENCES usuarios(id),
-          FOREIGN KEY (producto_id) REFERENCES productos(id)
+          FOREIGN KEY (usuario_id) REFERENCES usuarios(id) ON DELETE CASCADE,
+          FOREIGN KEY (producto_id) REFERENCES productos(id) ON DELETE CASCADE,
+          UNIQUE KEY unique_user_product (usuario_id, producto_id)
         )
       `)
 
@@ -59,9 +63,9 @@ async function initDB() {
           id INT AUTO_INCREMENT PRIMARY KEY,
           usuario_id INT NOT NULL,
           total DECIMAL(10, 2) NOT NULL,
-          estado VARCHAR(50) DEFAULT 'pendiente',
+          estado ENUM('pendiente', 'procesando', 'completado', 'cancelado') DEFAULT 'pendiente',
           created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-          FOREIGN KEY (usuario_id) REFERENCES usuarios(id)
+          FOREIGN KEY (usuario_id) REFERENCES usuarios(id) ON DELETE CASCADE
         )
       `)
 
@@ -73,13 +77,13 @@ async function initDB() {
           producto_id INT NOT NULL,
           cantidad INT NOT NULL,
           precio DECIMAL(10, 2) NOT NULL,
-          FOREIGN KEY (pedido_id) REFERENCES pedidos(id),
-          FOREIGN KEY (producto_id) REFERENCES productos(id)
+          FOREIGN KEY (pedido_id) REFERENCES pedidos(id) ON DELETE CASCADE,
+          FOREIGN KEY (producto_id) REFERENCES productos(id) ON DELETE CASCADE
         )
       `)
 
       connection.release()
-      console.log("✅ Base de datos inicializada")
+      console.log("✅ Base de datos inicializada correctamente")
       return
     } catch (error) {
       retries--
@@ -92,5 +96,3 @@ async function initDB() {
     }
   }
 }
-
-module.exports = { pool, initDB }

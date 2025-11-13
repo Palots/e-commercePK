@@ -8,7 +8,7 @@ services:
       MYSQL_ROOT_PASSWORD: root123
       MYSQL_DATABASE: ecommerce
     ports:
-      - "3306:3306"
+      - "3310:3306"
     volumes:
       - mysql_data:/var/lib/mysql
     healthcheck:
@@ -26,6 +26,7 @@ services:
       DB_USER: root
       DB_PASSWORD: root123
       DB_NAME: ecommerce
+      DB_PORT: 3306
     depends_on:
       mysql:
         condition: service_healthy
